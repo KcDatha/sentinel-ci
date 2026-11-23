@@ -114,23 +114,78 @@ and `pyproject.toml` declare the real dependencies for consumers and CI.
       patch (skip marker plus weakened assertion) rejected by the
       guard, and the full flow through the fallback graph. No live
       API in tests.
-- [x] An incident now flows from Stage 1 evidence to a proposed
-      patch and stops at `awaiting_verification`: the Stage 3 gate
-      has not run, no verdict is recorded, and nothing is trusted
-      yet.
+- [x] An incident flows from Stage 1 evidence to a proposed patch
+      and stops at `awaiting_verification` until the Stage 3 gate
+      judges it (Stage 3 below): no verdict is recorded by Stage 2,
+      and nothing is trusted yet.
 
-## Stage 3: Verification loop
+## Stage 3: Verification loop — DONE
 
-- [ ] Docker runner: checkout at the failed head sha, apply the patch,
-      run the originally failing tests, then the repo's regression suite.
-- [ ] Adversarial Verification agent: verdict plus notes arguing against
-      the root cause and the patch (wrong layer, masked symptom, new
-      breakage). Verdicts: passed, failed, inconclusive. Inconclusive
-      never ships.
-- [ ] Retry loop: failed gate returns to Repair with the verifier's
-      notes; attempts capped (default 2), then escalate.
-- [ ] Cost and time budgets per incident; every model call and test run
-      logged against the incident state (auditability by construction).
+- [x] Sandbox runner (`sentinel_ci/sandbox.py`): the incident repo is
+      checked out at the failing commit into a temporary `git
+      worktree`, the proposed patch is applied there, and the project
+      tests run in that tree; the original checkout is never mutated
+      and the worktree is removed afterwards. When a `docker` binary
+      is available the test commands execute inside a container with
+      the patched tree mounted (default image `python:3.12-slim`,
+      `SENTINEL_CI_SANDBOX_IMAGE`); otherwise the same worktree runs
+      them with the host interpreter. The mode that ran is recorded
+      in the state (`sandbox_mode`), never assumed. Every run is
+      timeout bounded (`SENTINEL_CI_VERIFY_TIMEOUT`, default 600s);
+      a timeout is a failed condition, never a pass. The test command
+      is configured (`SENTINEL_CI_TEST_COMMAND`) or autodetected
+      (pytest when the project declares it or it is installed, else
+      unittest discovery). Honest environment note: this development
+      sandbox has no Docker, so the test suite exercises the worktree
+      fallback end to end; the Docker path shares all of the code
+      except the command wrapper.
+- [x] The three gate conditions, all required, in
+      `sentinel_ci/agents/adversarial_verification.py`: (1) the
+      originally failing tests pass under the patch (targeted run
+      over their files), (2) the full suite shows no new failures
+      relative to the failing run, (3) the Adversarial Verification
+      agent fails to break the fix. Results are compared as
+      normalised `(file, test name)` pairs, so pytest and unittest
+      output both check against the Stage 1 evidence. The adversary
+      runs only when the tests are green: a patch the suite already
+      killed does not spend model quota, and its failing output is
+      the feedback the next attempt needs.
+- [x] Adversarial Verification agent: a Gemini call (free tier,
+      structured JSON, schema validated in code) briefed with the
+      root cause, the patch, and the sandbox results, required to
+      make the strongest concrete case that the fix is wrong,
+      incomplete, or symptom hiding (hardcoded fixture values,
+      swallowed errors, wrong layer, a second call site left broken).
+      Verdicts `survives` / `broken`; a `broken` verdict fails the
+      gate even with a green suite. A failed or malformed adversary
+      call makes the gate `inconclusive`, which never ships and
+      routes exactly like a failure.
+- [x] Retry loop: a failed or inconclusive gate records its evidence
+      in `verification_notes` (plus the structured `adversary`
+      report), and the Repair prompt carries that feedback, including
+      the adversary's attack, into the next attempt. Attempts are
+      capped by the Mission Controller (default 2 repair attempts);
+      exhaustion escalates to a human with the full audit trail. A
+      fix is marked `verified` only when all three conditions held
+      in the same attempt; partial conditions never verify.
+- [x] Gate reachability: an incident whose patch was proposed in an
+      earlier run resumes at the gate when it carries a local
+      checkout (`repo_path`). Without a checkout the gate cannot run
+      and the incident stays held at `awaiting_verification` with a
+      `gate_pending` audit event: not trusted, not shipped.
+- [x] Tests, all offline (`tests/test_stage3.py`): a real fixture
+      project (`tests/fixtures/project`, a shop whose checkout calls
+      a renamed pricing function) in a throwaway git repo, recorded
+      Gemini responses at the transport seam. Covered: a correct fix
+      passing all three conditions to `verified`; a fix that heals
+      the failing test but breaks another test, sent back on the
+      suite evidence alone; a green but symptom hiding fix (swallowed
+      error, hardcoded total) broken by the adversary; an unavailable
+      adversary yielding `inconclusive`, never `verified`; the
+      adversary break looping back to a second repair attempt that
+      verifies; escalation with the evidence attached when attempts
+      run out; and sandbox isolation (the original checkout is
+      byte-identical afterwards, no stray worktrees).
 
 ## Stage 4: Pull requests, demo, launch
 

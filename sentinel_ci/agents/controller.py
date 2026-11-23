@@ -38,13 +38,14 @@ def controller(
         audit.append(audit_event("Mission Controller", "log_parsed", summary.summary_line))
 
     verdict = state.get("verification_verdict")
-    if verdict == "passed" and state.get("status") != "ready_for_pr":
-        updates["status"] = "ready_for_pr"
+    if verdict == "passed" and state.get("status") != "verified":
+        updates["status"] = "verified"
         audit.append(
             audit_event(
                 "Mission Controller",
                 "gate_passed",
-                "verification survived; fix is ready for a pull request",
+                "verification survived; fix is verified and ready for "
+                "the Stage 4 pull request",
             )
         )
     elif verdict in {"failed", "inconclusive"} and (

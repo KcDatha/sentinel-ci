@@ -8,9 +8,13 @@ pattern)::
     root_cause  -> repair             (only on a confirmed root cause)
     repair      -> adversarial_verification -> controller
     controller  -> repair             (gate failed, attempts remain)
-    controller  -> END                (ready_for_pr, escalated, or a
+    controller  -> adversarial_verification (a resumed incident whose
+                                       patch is held at the gate and
+                                       which carries a local checkout)
+    controller  -> END                (verified, escalated, or a
                                        proposed patch held at the
-                                       Stage 3 verification gate)
+                                       verification gate with no local
+                                       checkout to run it against)
 
 When ``langgraph`` is installed, :func:`build_graph` returns a real
 compiled LangGraph ``StateGraph``. When it is not, it returns a
@@ -40,14 +44,17 @@ END = "__end__"
 # -- routing (shared by LangGraph edges and the fallback runner) --------
 
 def route_after_controller(state: SentinelCIState) -> str:
-    if state.get("status") in {"ready_for_pr", "escalated"}:
+    if state.get("status") in {"verified", "ready_for_pr", "escalated"}:
         return END
     if state.get("verification_verdict") in {"failed", "inconclusive"}:
         return "repair"
     if state.get("status") == "awaiting_verification":
-        # Stage 2 stops here: a patch is proposed and the Stage 3
-        # gate has not run. Once the gate records a verdict, the
-        # branches above take over.
+        if state.get("repo_path"):
+            # A patch was proposed in an earlier run and the incident
+            # carries a local checkout: resume at the Stage 3 gate.
+            return "adversarial_verification"
+        # No checkout, so the gate cannot run: the incident stays
+        # held at the Stage 2 stop, patch untrusted.
         return END
     return "codebase_analyst"
 
@@ -89,24 +96,33 @@ class FallbackGraph:
             s.update(node(s, **kwargs))
 
         apply(controller, max_repair_attempts=cfg.max_repair_attempts)
-        if route_after_controller(s) != "codebase_analyst":
-            return s  # type: ignore[return-value]
-
-        apply(codebase_analyst, config=cfg)
-        while True:
-            apply(failure_hypothesis, config=cfg)
-            apply(root_cause, config=cfg)
-            nxt = route_after_root_cause(
-                s, cfg.confidence_threshold, cfg.max_hypothesis_attempts
-            )
-            if nxt != "failure_hypothesis":
-                break
-        if nxt != "repair":
+        route = route_after_controller(s)
+        if route == "adversarial_verification":
+            # Resumed incident: the patch already exists and the gate
+            # can run. Verify, let the controller judge, and fall
+            # through to the repair loop if the gate failed with
+            # attempts remaining.
+            apply(adversarial_verification, config=cfg)
+            apply(controller, max_repair_attempts=cfg.max_repair_attempts)
+            route = route_after_controller(s)
+        if route == "codebase_analyst":
+            apply(codebase_analyst, config=cfg)
+            while True:
+                apply(failure_hypothesis, config=cfg)
+                apply(root_cause, config=cfg)
+                nxt = route_after_root_cause(
+                    s, cfg.confidence_threshold, cfg.max_hypothesis_attempts
+                )
+                if nxt != "failure_hypothesis":
+                    break
+            if nxt != "repair":
+                return s  # type: ignore[return-value]
+        elif route != "repair":
             return s  # type: ignore[return-value]
 
         while True:
             apply(repair, config=cfg)
-            apply(adversarial_verification)
+            apply(adversarial_verification, config=cfg)
             apply(controller, max_repair_attempts=cfg.max_repair_attempts)
             if route_after_controller(s) != "repair":
                 break
@@ -133,13 +149,20 @@ def build_graph(config: Config | None = None):
     builder.add_node("failure_hypothesis", partial(failure_hypothesis, config=config))
     builder.add_node("root_cause", partial(root_cause, config=config))
     builder.add_node("repair", partial(repair, config=config))
-    builder.add_node("adversarial_verification", adversarial_verification)
+    builder.add_node(
+        "adversarial_verification", partial(adversarial_verification, config=config)
+    )
 
     builder.set_entry_point("controller")
     builder.add_conditional_edges(
         "controller",
         route_after_controller,
-        {"codebase_analyst": "codebase_analyst", "repair": "repair", END: LG_END},
+        {
+            "codebase_analyst": "codebase_analyst",
+            "repair": "repair",
+            "adversarial_verification": "adversarial_verification",
+            END: LG_END,
+        },
     )
     builder.add_edge("codebase_analyst", "failure_hypothesis")
     builder.add_edge("failure_hypothesis", "root_cause")

@@ -39,6 +39,14 @@ class AuditEvent(TypedDict, total=False):
     detail: str
 
 
+class AdversaryReport(TypedDict, total=False):
+    """The Adversarial Verification agent's structured attack report."""
+
+    verdict: str  # "survives" | "broken"
+    attack: str  # the strongest case it could make against the fix
+    reasoning: str
+
+
 class SentinelCIState(TypedDict, total=False):
     # --- Incident identity (set by the watcher / Mission Controller) ---
     repo: str
@@ -74,14 +82,27 @@ class SentinelCIState(TypedDict, total=False):
     repair_attempts: int
 
     # --- Verification gate (Stage 3) ---
+    # repo_path is the local checkout of the incident repository; the
+    # gate checks head_sha out into an isolated sandbox from it and
+    # never mutates it. Without a checkout the gate cannot run and
+    # the incident stays held at awaiting_verification.
+    repo_path: str
+    sandbox_mode: str  # "docker" | "worktree" | "" (gate has not run)
+    targeted_failures: list[str]  # originally failing tests still red
+    new_failures: list[str]  # suite failures the failing run did not have
+    verification_output: str  # bounded tail of the sandbox test output
+    adversary: AdversaryReport
     verification_verdict: str  # "passed" | "failed" | "inconclusive"
     verification_notes: list[str]
 
     # --- Outcome ---
     # queued -> diagnosing -> awaiting_verification -> verifying ->
-    # ready_for_pr; any stage can divert to "escalated" (human in the
-    # loop). "awaiting_verification" is where Stage 2 stops: a patch
-    # is proposed and the Stage 3 gate has not run yet.
+    # verified; any stage can divert to "escalated" (human in the
+    # loop). "verified" means all three Stage 3 gate conditions
+    # passed and the fix is ready for Stage 4 to open the pull
+    # request. "awaiting_verification" is where an incident with a
+    # proposed patch but no runnable gate (no local checkout) stays
+    # held: not trusted, not shipped.
     status: str
     escalation_reason: str
     pr_url: str
@@ -106,6 +127,10 @@ def new_state(**overrides) -> SentinelCIState:
         "root_cause_confidence": 0.0,
         "repair_files": [],
         "repair_attempts": 0,
+        "sandbox_mode": "",
+        "targeted_failures": [],
+        "new_failures": [],
+        "adversary": {},
         "verification_notes": [],
         "status": "queued",
         "audit": [],

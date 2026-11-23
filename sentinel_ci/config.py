@@ -56,6 +56,17 @@ class Config:
     # escalates to a human instead of looping on guesses.
     max_hypothesis_attempts: int = 2
 
+    # Sandbox behaviour (Stage 3). Verification checks the incident
+    # repo out at the failing commit into an isolated sandbox (Docker
+    # when available, else a temporary git worktree), applies the
+    # proposed patch there, and runs the project tests. The original
+    # checkout is never mutated. An empty test command means
+    # autodetect from the project (pytest when it is the project's
+    # runner, else unittest discovery).
+    test_command: str = ""
+    verify_timeout_seconds: int = 600
+    sandbox_image: str = "python:3.12-slim"
+
     # Directory verification runs execute in (Stage 3, Docker).
     work_dir: str = field(default=".sentinel-ci-work")
 
@@ -71,6 +82,9 @@ class Config:
             confidence_threshold=float(env.get("SENTINEL_CI_CONFIDENCE_THRESHOLD", "0.7")),
             max_repair_attempts=int(env.get("SENTINEL_CI_MAX_REPAIR_ATTEMPTS", "2")),
             max_hypothesis_attempts=int(env.get("SENTINEL_CI_MAX_HYPOTHESIS_ATTEMPTS", "2")),
+            test_command=env.get("SENTINEL_CI_TEST_COMMAND", ""),
+            verify_timeout_seconds=int(env.get("SENTINEL_CI_VERIFY_TIMEOUT", "600")),
+            sandbox_image=env.get("SENTINEL_CI_SANDBOX_IMAGE", "python:3.12-slim"),
         )
 
     def problems(self, need_llm: bool = False, need_github: bool = True) -> list[str]:

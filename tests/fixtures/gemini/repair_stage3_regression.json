@@ -1,0 +1,14 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "diff --git a/cart.py b/cart.py\nindex cb5ee7c..75771d1 100644\n--- a/cart.py\n+++ b/cart.py\n@@ -15,4 +15,4 @@ class Cart:\n \n     def checkout(self):\n         # total via the pricing module\n-        return pricing.total_price(self.items)\n+        return pricing.compute_total(self.items)\ndiff --git a/pricing.py b/pricing.py\nindex ec5e52d..36f0c81 100644\n--- a/pricing.py\n+++ b/pricing.py\n@@ -3,4 +3,4 @@ def compute_total(items):\n \n \n def tax_for(amount):\n-    return amount * 0.1\n+    return amount * 0.2\n"
+          }
+        ]
+      }
+    }
+  ]
+}

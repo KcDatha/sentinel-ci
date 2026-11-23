@@ -89,19 +89,26 @@ python -m unittest discover -s tests -t .
 
 ## Status
 
-Under active development. Stage 1 (watcher, log parser) and Stage 2
-(diagnosis and repair) are implemented: the Codebase Analyst seals an
-evidence pack from the diff since the last green build, Failure
-Hypothesis and Root Cause argue a cause to a calibrated confidence
-(with a bounded retry loop when a hypothesis is rejected), and Repair
-drafts a minimal patch that a programmatic guard checks before it
-exists (evidence implicated files only, size caps, and no weakened,
-skipped, or deleted tests). A proposed patch stops at
-`awaiting_verification`: the Docker verification loop (Stage 3) and
-pull request opening (Stage 4) are not built yet, so no fix is
-trusted or shipped. When diagnosis cannot run or cannot reach
-confidence, the pipeline does the honest thing: it escalates to a
-human with the evidence attached. The full plan, including
+Under active development. Stages 1 to 3 are implemented: the watcher
+and log parser (Stage 1); diagnosis and repair (Stage 2: the Codebase
+Analyst seals an evidence pack from the diff since the last green
+build, Failure Hypothesis and Root Cause argue a cause to a calibrated
+confidence with a bounded retry loop, and Repair drafts a minimal
+patch that a programmatic guard checks before it exists); and the
+verification gate (Stage 3). A proposed patch is applied to a clean
+checkout of the failing commit in an isolated sandbox (Docker when
+available, otherwise a temporary git worktree; the original checkout
+is never mutated) and earns trust on three conditions, all required:
+the originally failing tests pass, the full suite shows no new
+failures, and the Adversarial Verification agent, briefed to make the
+strongest case that the fix is wrong or only hiding the symptom,
+fails to break it. A failed gate feeds its evidence back into the
+next repair attempt within a capped budget, then escalates to a human
+with the audit trail. Only a fix that survives all three conditions
+is marked `verified`; pull request opening (Stage 4) is not built
+yet, so nothing ships from here. When diagnosis cannot run or cannot
+reach confidence, the pipeline does the honest thing: it escalates to
+a human with the evidence attached. The full plan, including
 guardrails and the UI design direction for the demo page, is in
 [BUILD_PLAN.md](BUILD_PLAN.md).
 
