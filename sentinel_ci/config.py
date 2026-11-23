@@ -70,6 +70,12 @@ class Config:
     # Directory verification runs execute in (Stage 3, Docker).
     work_dir: str = field(default=".sentinel-ci-work")
 
+    # Local checkout of the target repository for the Stage 3 gate
+    # (Stage 4 pipeline). The GitHub Action checks the consumer repo
+    # out and points this at it; unset means the pipeline clones into
+    # a temporary directory instead.
+    repo_path: str = ""
+
     @classmethod
     def from_env(cls, env: dict | None = None) -> "Config":
         env = os.environ if env is None else env
@@ -85,6 +91,7 @@ class Config:
             test_command=env.get("SENTINEL_CI_TEST_COMMAND", ""),
             verify_timeout_seconds=int(env.get("SENTINEL_CI_VERIFY_TIMEOUT", "600")),
             sandbox_image=env.get("SENTINEL_CI_SANDBOX_IMAGE", "python:3.12-slim"),
+            repo_path=env.get("SENTINEL_CI_REPO_PATH", ""),
         )
 
     def problems(self, need_llm: bool = False, need_github: bool = True) -> list[str]:

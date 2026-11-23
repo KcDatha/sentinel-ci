@@ -187,22 +187,60 @@ and `pyproject.toml` declare the real dependencies for consumers and CI.
       run out; and sandbox isolation (the original checkout is
       byte-identical afterwards, no stray worktrees).
 
-## Stage 4: Pull requests, demo, launch
+## Stage 4: Pull requests, demo, launch — BUILT (live run pending one secret)
 
-- [ ] Controller opens a PR from the verified patch only: title, root
-      cause, evidence, verification transcript, rollback path. Never
-      auto merge. Draft PR when confidence is mid range.
-- [ ] `action.yml` published flow: tag v1, Marketplace listing draft.
-- [ ] Demo repository with intentionally failing tests (a discount bug
-      and a rounding bug, matching the parser fixtures' world), plus a
-      recorded end to end run: red build, diagnosis, repair, verifier
-      rejecting the first attempt, verified fix, PR.
-- [ ] Live demo page (see UI design direction below): replays an
-      incident end to end with the agent pipeline visible. Static site
-      in `demo/`, deploy ready for Vercel free tier (`vercel.json`
-      points at it); a first version ships with this plan.
-- [ ] Launch package: README final pass, demo GIF or short screen
-      recording, LinkedIn post draft for Guru's approval before posting.
+- [x] Controller opens a PR from the verified patch only
+      (`sentinel_ci/pull_request.py`, driven by
+      `sentinel_ci/pipeline.py`): the branch
+      `sentinel-ci/run-<run_id>` is created at the failing commit and
+      the patch is committed through the Git data API (blob, tree,
+      commit, ref), applied to the file contents fetched at that
+      commit by a strict hunk applier that refuses a context
+      mismatch rather than guessing. The PR body is the audit trail:
+      failure summary, hypothesis and confirmed root cause with its
+      confidence, the diff, the three verification gate results
+      including the adversary's strongest attack and why the fix
+      survived it, the attempt history, and the full audit trail.
+      Mid range root cause confidence (below 0.85) opens the PR as a
+      draft. Never auto merge, stated in the PR body itself. A
+      publishing failure leaves the incident `verified` with the
+      failure recorded: the fix is proven, the publishing failed,
+      and a human can open the PR by hand from the same evidence.
+- [x] `action.yml` published flow: the composite Action runs the
+      full pipeline (`sentinel-ci heal`) when a consumer
+      `workflow_run` failure event fires it: it checks the failed
+      run's commit out for the verification gate, reads
+      `GEMINI_API_KEY` from the consumer repo secret, and fails
+      gracefully with one clear log line when the key is missing
+      (exit 0, no changes). Tagged `v1`, so the consumer reference
+      `KcDatha/sentinel-ci@v1` in `examples/sentinel-ci.yml`
+      resolves. Marketplace listing draft not done; the README
+      install section is the listing copy for now.
+- [x] Demo repository: `KcDatha/sentinel-ci-demo`, a small Python
+      shop with a real unittest suite and three planted, recognizable
+      failures committed in sequence (a function renamed in pricing
+      whose cart caller was not updated, a receipt footer test with
+      a hardcoded year, and an order JSON key renamed away from the
+      documented contract), plus the consumer workflow. Its CI is
+      red on purpose.
+- [ ] A recorded end to end healing run (red build, diagnosis,
+      repair, verifier rejecting an attempt, verified fix, PR).
+      Blocked on exactly one step: the `GEMINI_API_KEY` secret does
+      not exist in the demo repository yet, and no key is available
+      in the development environment (the variable is set but
+      empty). Guru adds a free Google AI Studio key under the demo
+      repo's Settings > Secrets and variables > Actions, and the
+      next failed CI run (or a re-run of the current one) triggers
+      the heal. Until then the Action logs the missing key and
+      changes nothing, which the demo repo's workflow history shows.
+- [x] Live demo page: `demo/` reflects Stages 1 to 4 (all six agents
+      working, Stage 4 landing note, demo repo linked), design
+      tokens unchanged; the Vercel site is GitHub connected and
+      redeploys on push.
+- [ ] Launch package: demo GIF or short screen recording, LinkedIn
+      post draft for Guru's approval before posting. (The recording
+      wants the live run above; the post needs Guru's permission,
+      per his standing rule.)
 
 ## Guardrails (non negotiable, from the SENTINEL pattern)
 

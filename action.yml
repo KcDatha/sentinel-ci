@@ -9,8 +9,11 @@ inputs:
   gemini_api_key:
     description: >-
       Google AI Studio Gemini API key (free tier) used by the diagnosis
-      and repair agents.
-    required: true
+      and repair agents. Pass it from a repository secret. When it is
+      missing, the heal run logs a clear line saying so and changes
+      nothing.
+    required: false
+    default: ""
   github_token:
     description: >-
       Token with actions:read, contents:write, and pull-requests:write.
@@ -18,9 +21,12 @@ inputs:
     required: false
     default: ${{ github.token }}
   mode:
-    description: Operating mode. Only "watch" exists today; later stages add more.
+    description: >-
+      "heal" runs the full pipeline over the failed run that triggered
+      the workflow (evidence, diagnosis, repair, verification, pull
+      request). "watch" only polls and reports failed runs.
     required: false
-    default: watch
+    default: heal
 
 runs:
   using: composite
@@ -31,7 +37,24 @@ runs:
     - name: Install SENTINEL CI
       shell: bash
       run: pip install "${{ github.action_path }}"
-    - name: Run SENTINEL CI
+    - name: Check out the failed run's commit
+      if: ${{ inputs.mode == 'heal' }}
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.workflow_run.head_sha }}
+        path: .sentinel-ci-target
+        token: ${{ inputs.github_token }}
+    - name: Run SENTINEL CI (heal)
+      if: ${{ inputs.mode == 'heal' }}
+      shell: bash
+      env:
+        GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        SENTINEL_CI_REPO_PATH: ${{ github.workspace }}/.sentinel-ci-target
+      run: sentinel-ci heal
+    - name: Run SENTINEL CI (watch)
+      if: ${{ inputs.mode == 'watch' }}
       shell: bash
       env:
         GEMINI_API_KEY: ${{ inputs.gemini_api_key }}

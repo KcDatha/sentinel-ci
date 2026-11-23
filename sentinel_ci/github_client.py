@@ -67,6 +67,26 @@ class GitHubClient:
         with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310 - fixed host
             return resp.read()
 
+    def _send_json(self, method: str, path: str, payload: dict) -> dict:
+        """POST or PUT a JSON body; the write side of the client (Stage 4)."""
+        url = f"{self._api_root}{path}"
+        body = json.dumps(payload).encode("utf-8")
+        if _HAVE_REQUESTS:
+            resp = requests.request(
+                method, url, headers=self._headers(), json=payload, timeout=30
+            )
+            if resp.status_code >= 400:
+                raise GitHubError(
+                    f"{method} {path} -> {resp.status_code}: {resp.text[:200]}"
+                )
+            return resp.json() if resp.content else {}
+        req = urllib.request.Request(
+            url, data=body, headers=self._headers(), method=method
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 - fixed host
+            raw = resp.read()
+            return json.loads(raw.decode("utf-8")) if raw else {}
+
     # -- SENTINEL CI surface -------------------------------------------
     def list_failed_runs(self, repo: str, per_page: int = 20) -> list[dict]:
         """Recently completed workflow runs on ``repo`` that failed."""
@@ -124,3 +144,77 @@ class GitHubClient:
         import base64
 
         return base64.b64decode(data["content"]).decode("utf-8", errors="replace")
+
+    # -- Stage 4: branch, commit, and pull request ----------------------
+    # The verified patch is published through the Git data API, so no
+    # local clone is needed for this stage: blob, tree, commit, ref,
+    # then the pull request itself. Nothing here merges anything.
+
+    def get_repo(self, repo: str) -> dict:
+        """Repository metadata; the PR stage needs the default branch."""
+        return self._get_json(f"/repos/{repo}")
+
+    def get_commit(self, repo: str, sha: str) -> dict:
+        """One commit object; carries the tree sha the PR stage builds on."""
+        return self._get_json(f"/repos/{repo}/git/commits/{sha}")
+
+    def create_blob(self, repo: str, text: str) -> str:
+        """Store one file's new contents as a blob; returns its sha."""
+        import base64
+
+        data = self._send_json(
+            "POST",
+            f"/repos/{repo}/git/blobs",
+            {
+                "content": base64.b64encode(text.encode("utf-8")).decode("ascii"),
+                "encoding": "base64",
+            },
+        )
+        return data["sha"]
+
+    def create_tree(self, repo: str, base_tree: str, entries: list[dict]) -> str:
+        """A new tree on top of ``base_tree``; returns its sha.
+
+        Each entry is ``{"path", "mode", "type", "sha"}``; an entry
+        with ``sha`` set to None deletes the path.
+        """
+        data = self._send_json(
+            "POST",
+            f"/repos/{repo}/git/trees",
+            {"base_tree": base_tree, "tree": entries},
+        )
+        return data["sha"]
+
+    def create_commit(
+        self, repo: str, message: str, tree: str, parents: list[str]
+    ) -> str:
+        """One commit object; returns its sha."""
+        data = self._send_json(
+            "POST",
+            f"/repos/{repo}/git/commits",
+            {"message": message, "tree": tree, "parents": parents},
+        )
+        return data["sha"]
+
+    def create_ref(self, repo: str, ref: str, sha: str) -> dict:
+        """Create ``refs/<ref>`` (for example ``heads/<branch>``)."""
+        return self._send_json(
+            "POST", f"/repos/{repo}/git/refs", {"ref": f"refs/{ref}", "sha": sha}
+        )
+
+    def create_pull_request(
+        self,
+        repo: str,
+        title: str,
+        body: str,
+        head: str,
+        base: str,
+        draft: bool = False,
+    ) -> dict:
+        """Open a pull request; returns the API object (has html_url)."""
+        return self._send_json(
+            "POST",
+            f"/repos/{repo}/pulls",
+            {"title": title, "body": body, "head": head, "base": base,
+             "draft": draft},
+        )

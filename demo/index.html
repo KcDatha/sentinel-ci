@@ -102,10 +102,10 @@
 
   <section>
     <h2>A failed run, as the parser sees it</h2>
-    <p class="section-note">Stage 1 is built and tested today: the watcher spots
-    the failed run, and the log parser reduces a full Actions log to the few
-    facts diagnosis needs. This is the parser's real output shape on a sample
-    pytest failure.</p>
+    <p class="section-note">The pipeline is built end to end today: the watcher
+    spots the failed run, and the log parser reduces a full Actions log to the
+    few facts diagnosis needs. This is the parser's real output shape on a
+    sample pytest failure.</p>
 
     <div class="panel">
       <div class="panel-head">
@@ -133,37 +133,37 @@ E        +  where 90.0 = total()</pre>
           <td class="num">01</td>
           <td>Mission Controller</td>
           <td>Opens the incident, owns routing, opens the PR or escalates</td>
-          <td><span class="status verified">Stage 1 live</span></td>
+          <td><span class="status verified">Working</span></td>
         </tr>
         <tr>
           <td class="num">02</td>
           <td>Codebase Analyst</td>
           <td>Fetches the diff since the last green build, maps blast radius</td>
-          <td><span class="status pending">Stage 2</span></td>
+          <td><span class="status verified">Working</span></td>
         </tr>
         <tr>
           <td class="num">03</td>
           <td>Failure Hypothesis</td>
           <td>Ranked candidate causes, each with the observation that would kill it</td>
-          <td><span class="status pending">Stage 2</span></td>
+          <td><span class="status verified">Working</span></td>
         </tr>
         <tr>
           <td class="num">04</td>
           <td>Root Cause</td>
           <td>Tests hypotheses until one cause explains every symptom</td>
-          <td><span class="status pending">Stage 2</span></td>
+          <td><span class="status verified">Working</span></td>
         </tr>
         <tr>
           <td class="num">05</td>
           <td>Repair</td>
           <td>Drafts the smallest safe fix, with a rollback path</td>
-          <td><span class="status pending">Stage 2</span></td>
+          <td><span class="status verified">Working</span></td>
         </tr>
         <tr>
           <td class="num">06</td>
           <td>Adversarial Verification</td>
           <td>Reruns the failing tests plus the regression suite in Docker and argues against the fix</td>
-          <td><span class="status pending">Stage 3</span></td>
+          <td><span class="status verified">Working</span></td>
         </tr>
       </table>
     </div>
@@ -195,12 +195,26 @@ E        +  where 90.0 = total()</pre>
   with:
     gemini_api_key: ${{ secrets.GEMINI_API_KEY }}</pre>
     <p style="color: var(--text-muted);">Full example and source:
-    <a href="https://github.com/KcDatha/sentinel-ci">github.com/KcDatha/sentinel-ci</a></p>
+    <a href="https://github.com/KcDatha/sentinel-ci">github.com/KcDatha/sentinel-ci</a>.
+    A public demo repository with three planted failures is at
+    <a href="https://github.com/KcDatha/sentinel-ci-demo">github.com/KcDatha/sentinel-ci-demo</a>.</p>
+  </section>
+
+  <section>
+    <h2>Status</h2>
+    <p class="section-note">Stages 1 to 3 are working: the watcher and log
+    parser, diagnosis and repair behind a programmatic patch guard, and the
+    three condition verification gate. Stage 4 is landing in this update:
+    pull request opening from a verified fix, the installable Action running
+    the full pipeline, and the public demo repository. One step remains
+    before a live healing run can happen on the demo repository: adding the
+    free Gemini key as its <span class="meta">GEMINI_API_KEY</span> secret.
+    Until then the Action logs exactly that and changes nothing.</p>
   </section>
 
   <footer>
-    <span>SENTINEL CI — under active development. Stage 1 is live; diagnosis,
-    verification, and pull requests land stage by stage.</span>
+    <span>SENTINEL CI — stages 1 to 4 built. A verified fix becomes a pull
+    request; nothing ever merges itself.</span>
     <span>Built by <a href="https://gurudatha-portfolio.vercel.app/">Guru Datha Kandanathi Chittem</a></span>
   </footer>
 

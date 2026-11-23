@@ -69,8 +69,8 @@ Actions free minutes for the pipeline, Vercel free for the demo page.
 
 ## Run it locally
 
-Stage 1 (watcher and log parser) and Stage 2 (diagnosis and repair)
-work today, on the standard library alone apart from the Gemini call:
+The full pipeline works today, on the standard library alone apart
+from the Gemini call:
 
 ```bash
 # Parse a saved Actions log into a compact failure summary
@@ -83,34 +83,58 @@ GITHUB_TOKEN=... SENTINEL_CI_REPO=owner/name python -m sentinel_ci watch --once
 # (with GEMINI_API_KEY set, diagnosis and repair run end to end)
 GEMINI_API_KEY=... python -m sentinel_ci run-graph path/to/run.log
 
+# Heal one failed run end to end: evidence, diagnosis, repair,
+# verification, and a pull request for a verified fix. This is the
+# command the GitHub Action runs. Without GEMINI_API_KEY it prints
+# exactly that and changes nothing.
+GEMINI_API_KEY=... GITHUB_TOKEN=... SENTINEL_CI_REPO=owner/name python -m sentinel_ci heal
+
 # Tests
 python -m unittest discover -s tests -t .
 ```
 
 ## Status
 
-Under active development. Stages 1 to 3 are implemented: the watcher
+Under active development. Stages 1 to 4 are implemented: the watcher
 and log parser (Stage 1); diagnosis and repair (Stage 2: the Codebase
 Analyst seals an evidence pack from the diff since the last green
 build, Failure Hypothesis and Root Cause argue a cause to a calibrated
 confidence with a bounded retry loop, and Repair drafts a minimal
-patch that a programmatic guard checks before it exists); and the
-verification gate (Stage 3). A proposed patch is applied to a clean
-checkout of the failing commit in an isolated sandbox (Docker when
-available, otherwise a temporary git worktree; the original checkout
-is never mutated) and earns trust on three conditions, all required:
-the originally failing tests pass, the full suite shows no new
-failures, and the Adversarial Verification agent, briefed to make the
-strongest case that the fix is wrong or only hiding the symptom,
-fails to break it. A failed gate feeds its evidence back into the
-next repair attempt within a capped budget, then escalates to a human
-with the audit trail. Only a fix that survives all three conditions
-is marked `verified`; pull request opening (Stage 4) is not built
-yet, so nothing ships from here. When diagnosis cannot run or cannot
-reach confidence, the pipeline does the honest thing: it escalates to
-a human with the evidence attached. The full plan, including
-guardrails and the UI design direction for the demo page, is in
-[BUILD_PLAN.md](BUILD_PLAN.md).
+patch that a programmatic guard checks before it exists); the
+verification gate (Stage 3); and pull request opening (Stage 4). A
+proposed patch is applied to a clean checkout of the failing commit
+in an isolated sandbox (Docker when available, otherwise a temporary
+git worktree; the original checkout is never mutated) and earns trust
+on three conditions, all required: the originally failing tests pass,
+the full suite shows no new failures, and the Adversarial
+Verification agent, briefed to make the strongest case that the fix
+is wrong or only hiding the symptom, fails to break it. A failed gate
+feeds its evidence back into the next repair attempt within a capped
+budget, then escalates to a human with the audit trail. Only a fix
+that survives all three conditions is marked `verified`, and only a
+verified fix becomes a pull request: the Mission Controller creates
+the branch `sentinel-ci/run-<run_id>` at the failing commit, commits
+the patch through the Git data API, and opens the PR with the full
+audit trail as its body (failure summary, confirmed root cause, the
+diff, the three gate results including the adversary's failed
+attack, and the attempt history). A mid range root cause confidence
+opens the PR as a draft. Nothing is ever merged automatically.
+
+A public demo repository,
+[sentinel-ci-demo](https://github.com/KcDatha/sentinel-ci-demo),
+carries three planted, recognizable failures (a renamed function
+whose caller was not updated, a date dependent test, and a JSON
+contract drift) with the consumer workflow installed, so its CI is
+red on purpose. What remains before a live healing run can happen
+there is one step that belongs to the repository owner: add a free
+Google AI Studio key as the `GEMINI_API_KEY` secret in the demo
+repository (Settings > Secrets and variables > Actions). Until that
+secret exists, the Action runs, logs exactly that, and changes
+nothing; no key, no healing, no pretending. When diagnosis cannot
+run or cannot reach confidence, the pipeline does the honest thing:
+it escalates to a human with the evidence attached. The full plan,
+including guardrails and the UI design direction for the demo page,
+is in [BUILD_PLAN.md](BUILD_PLAN.md).
 
 ## Author
 
