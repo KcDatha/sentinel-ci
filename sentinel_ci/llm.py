@@ -66,3 +66,43 @@ def complete(config: Config, system: str, prompt: str, max_tokens: int = 2048) -
     except (KeyError, IndexError) as exc:
         raise LLMError(f"unexpected Gemini response shape: {str(data)[:200]}") from exc
     return "".join(part.get("text", "") for part in parts)
+
+
+def complete_json(
+    config: Config, system: str, prompt: str, max_tokens: int = 4096
+) -> dict:
+    """One shot completion that must come back as a JSON object.
+
+    Asks Gemini for a JSON response body, then parses defensively
+    (models still fence JSON in markdown often enough). Anything that
+    is not a JSON object raises :class:`LLMError`: malformed model
+    output routes back or escalates, never forward. Tests stub
+    :func:`_generate`, the transport seam, so this parsing and the
+    agents' schema validation all run offline.
+    """
+    payload = {
+        "systemInstruction": {"parts": [{"text": system}]},
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "maxOutputTokens": max_tokens,
+            "responseMimeType": "application/json",
+        },
+    }
+    data = _generate(config, payload)
+    try:
+        parts = data["candidates"][0]["content"]["parts"]
+    except (KeyError, IndexError) as exc:
+        raise LLMError(f"unexpected Gemini response shape: {str(data)[:200]}") from exc
+    text = "".join(part.get("text", "") for part in parts).strip()
+    if text.startswith("```"):
+        # Strip a markdown fence: ```json ... ``` or plain ``` ... ```
+        text = text.split("\n", 1)[-1]
+        if text.rstrip().endswith("```"):
+            text = text.rstrip()[: -len("```")]
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise LLMError(f"model did not return valid JSON: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise LLMError("model JSON response was not an object")
+    return parsed

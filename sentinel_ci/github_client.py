@@ -105,3 +105,22 @@ class GitHubClient:
     def compare_diff(self, repo: str, base: str, head: str) -> dict:
         """Changed files and patch between two commits (Stage 2 input)."""
         return self._get_json(f"/repos/{repo}/compare/{base}...{head}")
+
+    def get_file_text(self, repo: str, path: str, ref: str) -> str:
+        """One file's text at ``ref`` via the contents API (Stage 2).
+
+        The contents API returns small files base64 encoded. Anything
+        it will not inline (very large files come back with an empty
+        body and encoding "none") raises, and the caller treats the
+        file as unavailable evidence rather than guessing at it.
+        """
+        from urllib.parse import quote
+
+        data = self._get_json(
+            f"/repos/{repo}/contents/{quote(path)}", params={"ref": ref}
+        )
+        if data.get("encoding") != "base64" or not data.get("content"):
+            raise GitHubError(f"contents API did not inline {path} at {ref}")
+        import base64
+
+        return base64.b64decode(data["content"]).decode("utf-8", errors="replace")

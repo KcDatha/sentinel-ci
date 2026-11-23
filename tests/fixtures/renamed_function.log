@@ -1,0 +1,24 @@
+2026-11-22T05:01:01.1023456Z ##[group]Run actions/checkout@v4
+2026-11-22T05:01:01.4023456Z with:
+2026-11-22T05:01:01.5023456Z   fetch-depth: 1
+2026-11-22T05:01:02.1023456Z ##[endgroup]
+2026-11-22T05:01:02.2023456Z ##[group]Run pytest -q
+2026-11-22T05:01:03.1023456Z ============================= test session starts ==============================
+2026-11-22T05:01:03.2023456Z platform linux -- Python 3.12.3, pytest-8.3.3, pluggy-1.5.0
+2026-11-22T05:01:03.3023456Z rootdir: /home/runner/work/shop/shop
+2026-11-22T05:01:03.4023456Z collected 4 items
+2026-11-22T05:01:04.1023456Z tests/test_cart.py::test_add_item PASSED                                 [ 25%]
+2026-11-22T05:01:04.2023456Z tests/test_cart.py::test_checkout_total FAILED                           [ 50%]
+2026-11-22T05:01:04.3023456Z tests/test_pricing.py::test_tax_rounding PASSED                          [ 75%]
+2026-11-22T05:01:04.4023456Z tests/test_pricing.py::test_currency_format PASSED                       [100%]
+2026-11-22T05:01:05.1023456Z =================================== FAILURES ===================================
+2026-11-22T05:01:05.2023456Z _____________________________ test_checkout_total ______________________________
+2026-11-22T05:01:05.3023456Z tests/test_cart.py:21: in test_checkout_total
+2026-11-22T05:01:05.4023456Z     assert cart.checkout() == 100
+2026-11-22T05:01:05.5023456Z cart.py:18: in checkout
+2026-11-22T05:01:05.6023456Z     return pricing.total_price(self.items)
+2026-11-22T05:01:05.7023456Z E       AttributeError: module 'pricing' has no attribute 'total_price'. Did you mean: 'compute_total'?
+2026-11-22T05:01:06.1023456Z =========================== short test summary info ============================
+2026-11-22T05:01:06.2023456Z FAILED tests/test_cart.py::test_checkout_total - AttributeError: module 'pricing' has no attribute 'total_price'
+2026-11-22T05:01:06.3023456Z ======================== 1 failed, 3 passed in 2.04s =========================
+2026-11-22T05:01:06.5023456Z ##[error]Process completed with exit code 1.

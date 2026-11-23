@@ -1,0 +1,14 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "diff --git a/cart.py b/cart.py\n--- a/cart.py\n+++ b/cart.py\n@@ -15,5 +15,5 @@ class Cart:\n \n     def checkout(self):\n         # total via the pricing module\n-        return pricing.total_price(self.items)\n+        return pricing.compute_total(self.items)\n"
+          }
+        ]
+      }
+    }
+  ]
+}

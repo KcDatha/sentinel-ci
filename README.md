@@ -69,8 +69,8 @@ Actions free minutes for the pipeline, Vercel free for the demo page.
 
 ## Run it locally
 
-Stage 1 (watcher and log parser) works today, on the standard library
-alone:
+Stage 1 (watcher and log parser) and Stage 2 (diagnosis and repair)
+work today, on the standard library alone apart from the Gemini call:
 
 ```bash
 # Parse a saved Actions log into a compact failure summary
@@ -80,7 +80,8 @@ python -m sentinel_ci parse-log path/to/run.log
 GITHUB_TOKEN=... SENTINEL_CI_REPO=owner/name python -m sentinel_ci watch --once
 
 # Run the agent graph over a log and print the incident state
-python -m sentinel_ci run-graph path/to/run.log
+# (with GEMINI_API_KEY set, diagnosis and repair run end to end)
+GEMINI_API_KEY=... python -m sentinel_ci run-graph path/to/run.log
 
 # Tests
 python -m unittest discover -s tests -t .
@@ -88,14 +89,21 @@ python -m unittest discover -s tests -t .
 
 ## Status
 
-Under active development. Stage 1 (watcher, log parser, graph
-skeleton, tests) is implemented. Diagnosis and repair (Stage 2), the
-Docker verification loop (Stage 3), and pull request opening (Stage 4)
-are scaffolded with clean module boundaries and land stage by stage.
-The full plan, including guardrails and the UI design direction for
-the demo page, is in [BUILD_PLAN.md](BUILD_PLAN.md). Until Stage 2
-lands, the pipeline does the honest thing with a failure it cannot yet
-diagnose: it escalates to a human with the evidence attached.
+Under active development. Stage 1 (watcher, log parser) and Stage 2
+(diagnosis and repair) are implemented: the Codebase Analyst seals an
+evidence pack from the diff since the last green build, Failure
+Hypothesis and Root Cause argue a cause to a calibrated confidence
+(with a bounded retry loop when a hypothesis is rejected), and Repair
+drafts a minimal patch that a programmatic guard checks before it
+exists (evidence implicated files only, size caps, and no weakened,
+skipped, or deleted tests). A proposed patch stops at
+`awaiting_verification`: the Docker verification loop (Stage 3) and
+pull request opening (Stage 4) are not built yet, so no fix is
+trusted or shipped. When diagnosis cannot run or cannot reach
+confidence, the pipeline does the honest thing: it escalates to a
+human with the evidence attached. The full plan, including
+guardrails and the UI design direction for the demo page, is in
+[BUILD_PLAN.md](BUILD_PLAN.md).
 
 ## Author
 

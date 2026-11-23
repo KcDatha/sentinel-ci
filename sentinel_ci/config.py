@@ -50,6 +50,12 @@ class Config:
     confidence_threshold: float = 0.7
     max_repair_attempts: int = 2
 
+    # Diagnosis behaviour (Stage 2). When the Root Cause agent rejects
+    # a hypothesis, the graph routes back for another hypothesis
+    # attempt; this caps how many attempts one incident gets before it
+    # escalates to a human instead of looping on guesses.
+    max_hypothesis_attempts: int = 2
+
     # Directory verification runs execute in (Stage 3, Docker).
     work_dir: str = field(default=".sentinel-ci-work")
 
@@ -64,6 +70,7 @@ class Config:
             poll_interval_seconds=int(env.get("SENTINEL_CI_POLL_INTERVAL", "60")),
             confidence_threshold=float(env.get("SENTINEL_CI_CONFIDENCE_THRESHOLD", "0.7")),
             max_repair_attempts=int(env.get("SENTINEL_CI_MAX_REPAIR_ATTEMPTS", "2")),
+            max_hypothesis_attempts=int(env.get("SENTINEL_CI_MAX_HYPOTHESIS_ATTEMPTS", "2")),
         )
 
     def problems(self, need_llm: bool = False, need_github: bool = True) -> list[str]:

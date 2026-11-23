@@ -32,6 +32,15 @@ def adversarial_verification(state: SentinelCIState) -> dict:
             "verification_verdict": "inconclusive",
             "verification_notes": ["No repair patch present; gate cannot pass."],
         }
-    # Stage 3 replaces this pass through with the Docker backed rerun.
-    audit.append(audit_event("Adversarial Verification", "rerun_pending", "Stage 3"))
+    # Stage 2 ends here by design: a patch exists, the gate has not
+    # run, and no verdict is recorded. Stage 3 replaces this with the
+    # Docker backed rerun and a real verdict.
+    audit.append(
+        audit_event(
+            "Adversarial Verification",
+            "gate_pending",
+            "patch proposed; the verification gate itself is Stage 3 "
+            "and has not run, so the fix is not trusted yet",
+        )
+    )
     return {"audit": audit}

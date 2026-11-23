@@ -1,0 +1,14 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "{\"verdict\": \"confirmed\", \"root_cause\": \"pricing.total_price was probably renamed and cart.py was not updated.\", \"confidence\": 0.4, \"reasoning\": \"The rename story fits the AttributeError, but the evidence pack is thin and the claim is hedged.\", \"missing_evidence\": []}"
+          }
+        ]
+      }
+    }
+  ]
+}

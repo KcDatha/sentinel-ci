@@ -1,0 +1,14 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "{\"hypotheses\": [{\"cause\": \"pricing.total_price was renamed to compute_total in pricing.py, but cart.py still calls the old name pricing.total_price\", \"supporting_evidence\": [\"AttributeError: module 'pricing' has no attribute 'total_price'. Did you mean: 'compute_total'?\", \"cart.py:18 in checkout: return pricing.total_price(self.items)\", \"diff renames def total_price(items) to def compute_total(items) in pricing.py\"], \"falsifier\": \"cart.py at the failing commit already calls pricing.compute_total, or pricing.py still defines total_price\", \"confidence\": 0.88, \"confidence_note\": \"The interpreter names the missing attribute and suggests the new name, and the diff shows the rename; only the caller was not updated.\"}, {\"cause\": \"cart.py imports a stale cached pricing module\", \"supporting_evidence\": [\"the failure is an AttributeError on the pricing module\"], \"falsifier\": \"a clean checkout reproduces the failure deterministically\", \"confidence\": 0.1, \"confidence_note\": \"CI runs on a clean checkout, so a stale cache is unlikely.\"}]}"
+          }
+        ]
+      }
+    }
+  ]
+}

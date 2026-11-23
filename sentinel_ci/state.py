@@ -20,6 +20,15 @@ class Hypothesis(TypedDict, total=False):
     supporting_evidence: list[str]
     falsifier: str
     confidence: float
+    confidence_note: str
+
+
+class CodeRegion(TypedDict, total=False):
+    """One bounded slice of source code collected as evidence."""
+
+    path: str
+    content: str
+    note: str  # how the slice was bounded, e.g. "lines 12-72 of 210"
 
 
 class AuditEvent(TypedDict, total=False):
@@ -47,14 +56,21 @@ class SentinelCIState(TypedDict, total=False):
     exit_code: int | None
     changed_files: list[str]
     diff: str
+    code_context: list[CodeRegion]
+    diff_truncated: bool
+    context_truncated: bool
 
     # --- Diagnosis (Stage 2) ---
     hypotheses: list[Hypothesis]
+    hypothesis_attempts: int
+    rejected_causes: list[str]  # causes Root Cause killed; never re-proposed
+    root_cause_verdict: str  # "confirmed" | "rejected" | ""
     root_cause: str
     root_cause_confidence: float
 
     # --- Repair (Stage 2) ---
     repair_patch: str
+    repair_files: list[str]  # files the accepted patch touches
     repair_attempts: int
 
     # --- Verification gate (Stage 3) ---
@@ -62,8 +78,10 @@ class SentinelCIState(TypedDict, total=False):
     verification_notes: list[str]
 
     # --- Outcome ---
-    # queued -> diagnosing -> repairing -> verifying -> ready_for_pr
-    # any stage can divert to "escalated" (human in the loop).
+    # queued -> diagnosing -> awaiting_verification -> verifying ->
+    # ready_for_pr; any stage can divert to "escalated" (human in the
+    # loop). "awaiting_verification" is where Stage 2 stops: a patch
+    # is proposed and the Stage 3 gate has not run yet.
     status: str
     escalation_reason: str
     pr_url: str
@@ -78,8 +96,15 @@ def new_state(**overrides) -> SentinelCIState:
         "failing_tests": [],
         "error_excerpts": [],
         "changed_files": [],
+        "code_context": [],
+        "diff_truncated": False,
+        "context_truncated": False,
         "hypotheses": [],
+        "hypothesis_attempts": 0,
+        "rejected_causes": [],
+        "root_cause_verdict": "",
         "root_cause_confidence": 0.0,
+        "repair_files": [],
         "repair_attempts": 0,
         "verification_notes": [],
         "status": "queued",

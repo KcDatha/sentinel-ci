@@ -68,22 +68,56 @@ and `pyproject.toml` declare the real dependencies for consumers and CI.
 - [x] CLI: `python -m sentinel_ci parse-log FILE`, `watch [--once]`,
       `run-graph FILE`.
 
-## Stage 2: Diagnosis and repair agents
+## Stage 2: Diagnosis and repair agents — DONE
 
-- [ ] Codebase Analyst: compare API diff (last green sha to failed head),
-      changed files, and relevant code context into the evidence pack.
-- [ ] Failure Hypothesis: structured LLM output; every hypothesis carries
-      supporting evidence and a falsifier. Reject hypotheses the evidence
-      cannot support.
-- [ ] Root Cause: score hypotheses against failing tests, excerpts, and
-      the diff; keep only a cause that explains every symptom; calibrated
-      confidence. Below the threshold (default 0.7) the incident escalates.
-- [ ] Repair: minimal patch as a unified diff, plus blast radius, rollback
-      path, and the regression tests that should guard it.
-- [ ] Prompt and output contracts under `sentinel_ci/prompts/` with
-      schema validation on every model response; malformed output routes
-      back, never forward.
-- [ ] Unit tests with recorded model responses (no live API in CI).
+- [x] Codebase Analyst: compare API diff (last green sha to failed
+      head; the base is resolved from the most recent successful run
+      when the watcher did not record it), changed files, and code
+      regions around the failure (failing test files plus the source
+      files traceback frames point into, read at the failing commit).
+      Bounded: diff capped at 24k chars, at most 6 context files,
+      slices capped at 4k chars; every truncation is recorded in the
+      state (`diff_truncated`, `context_truncated`). Missing
+      coordinates or an unreachable API degrade to log evidence only,
+      recorded in the audit trail.
+- [x] Failure Hypothesis: structured Gemini output (JSON mode);
+      every hypothesis carries supporting evidence, a falsifier, a
+      calibrated confidence, and a confidence note. Schema validated
+      in code; malformed output produces no hypotheses and the
+      incident escalates rather than guessing forward.
+- [x] Root Cause: a second Gemini call challenges the top hypothesis
+      against every symptom. Confirmed at or above the threshold
+      (default 0.7): on to Repair. Confirmed below it: escalate.
+      Rejected: the dead cause is recorded in `rejected_causes` and
+      the graph routes back to Failure Hypothesis for another
+      attempt (default cap 2, `SENTINEL_CI_MAX_HYPOTHESIS_ATTEMPTS`);
+      exhausted attempts escalate.
+- [x] Repair: minimal patch as a unified diff, produced only for a
+      confirmed root cause. Before the patch enters the state, the
+      programmatic guard (`sentinel_ci/patch_guard.py`) enforces the
+      load bearing rules in code: parseable diff, only files the
+      evidence implicates, size caps (5 files, 250 changed lines),
+      and no weakening, skipping, or deleting tests (no deleted test
+      files, no removed test functions, no net assertion loss, no
+      skip or xfail markers anywhere). A rejected patch is discarded
+      and the incident escalates with the guard's reasons; it never
+      reaches verification.
+- [x] Prompt contracts in `sentinel_ci/prompts.py` (system prompts
+      and builders for all three agents), schema validation on every
+      model response; malformed output routes back or escalates,
+      never forward. Log and diff content is fenced as untrusted
+      data in every prompt.
+- [x] Unit tests with recorded Gemini responses stubbed at the
+      transport seam (`sentinel_ci.llm._generate`): a renamed
+      function failure healed by updating the caller, a rejected
+      first hypothesis that loops and recovers, a symptom only
+      patch (skip marker plus weakened assertion) rejected by the
+      guard, and the full flow through the fallback graph. No live
+      API in tests.
+- [x] An incident now flows from Stage 1 evidence to a proposed
+      patch and stops at `awaiting_verification`: the Stage 3 gate
+      has not run, no verdict is recorded, and nothing is trusted
+      yet.
 
 ## Stage 3: Verification loop
 

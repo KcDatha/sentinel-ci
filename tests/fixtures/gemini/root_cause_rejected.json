@@ -1,0 +1,14 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "{\"verdict\": \"rejected\", \"root_cause\": \"\", \"confidence\": 0.2, \"reasoning\": \"The failure is an AttributeError for a missing module attribute, not a wrong total: the test never reaches its assertion. The diff shows a function rename in pricing.py and contains no discount constant or percentage change. The hypothesis explains none of the observed symptoms.\", \"missing_evidence\": [\"any discount related line in the diff since the last green build\"]}"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -4,10 +4,13 @@ Topology (the Mission Controller owns routing, per the SENTINEL
 pattern)::
 
     controller -> codebase_analyst -> failure_hypothesis -> root_cause
-    root_cause  -> repair            (only on a confident root cause)
+    root_cause  -> failure_hypothesis (hypothesis rejected, attempts remain)
+    root_cause  -> repair             (only on a confirmed root cause)
     repair      -> adversarial_verification -> controller
-    controller  -> repair            (gate failed, attempts remain)
-    controller  -> END               (ready_for_pr, or escalated)
+    controller  -> repair             (gate failed, attempts remain)
+    controller  -> END                (ready_for_pr, escalated, or a
+                                       proposed patch held at the
+                                       Stage 3 verification gate)
 
 When ``langgraph`` is installed, :func:`build_graph` returns a real
 compiled LangGraph ``StateGraph``. When it is not, it returns a
@@ -41,16 +44,30 @@ def route_after_controller(state: SentinelCIState) -> str:
         return END
     if state.get("verification_verdict") in {"failed", "inconclusive"}:
         return "repair"
+    if state.get("status") == "awaiting_verification":
+        # Stage 2 stops here: a patch is proposed and the Stage 3
+        # gate has not run. Once the gate records a verdict, the
+        # branches above take over.
+        return END
     return "codebase_analyst"
 
 
-def route_after_root_cause(state: SentinelCIState, confidence_threshold: float) -> str:
+def route_after_root_cause(
+    state: SentinelCIState,
+    confidence_threshold: float,
+    max_hypothesis_attempts: int,
+) -> str:
     if state.get("status") == "escalated":
         return END
     if state.get("root_cause") and (
         state.get("root_cause_confidence", 0.0) >= confidence_threshold
     ):
         return "repair"
+    if (
+        state.get("root_cause_verdict") == "rejected"
+        and state.get("hypothesis_attempts", 0) < max_hypothesis_attempts
+    ):
+        return "failure_hypothesis"
     return END
 
 
@@ -58,7 +75,8 @@ def route_after_root_cause(state: SentinelCIState, confidence_threshold: float) 
 
 class FallbackGraph:
     """The same topology without LangGraph. ``invoke`` mirrors the
-    compiled graph's behaviour, including the repair and verify loop."""
+    compiled graph's behaviour, including the hypothesis retry loop
+    and the repair and verify loop."""
 
     def __init__(self, config: Config):
         self._config = config
@@ -74,14 +92,20 @@ class FallbackGraph:
         if route_after_controller(s) != "codebase_analyst":
             return s  # type: ignore[return-value]
 
-        apply(codebase_analyst)
-        apply(failure_hypothesis)
-        apply(root_cause)
-        if route_after_root_cause(s, cfg.confidence_threshold) != "repair":
+        apply(codebase_analyst, config=cfg)
+        while True:
+            apply(failure_hypothesis, config=cfg)
+            apply(root_cause, config=cfg)
+            nxt = route_after_root_cause(
+                s, cfg.confidence_threshold, cfg.max_hypothesis_attempts
+            )
+            if nxt != "failure_hypothesis":
+                break
+        if nxt != "repair":
             return s  # type: ignore[return-value]
 
         while True:
-            apply(repair)
+            apply(repair, config=cfg)
             apply(adversarial_verification)
             apply(controller, max_repair_attempts=cfg.max_repair_attempts)
             if route_after_controller(s) != "repair":
@@ -105,10 +129,10 @@ def build_graph(config: Config | None = None):
         "controller",
         partial(controller, max_repair_attempts=config.max_repair_attempts),
     )
-    builder.add_node("codebase_analyst", codebase_analyst)
-    builder.add_node("failure_hypothesis", failure_hypothesis)
-    builder.add_node("root_cause", root_cause)
-    builder.add_node("repair", repair)
+    builder.add_node("codebase_analyst", partial(codebase_analyst, config=config))
+    builder.add_node("failure_hypothesis", partial(failure_hypothesis, config=config))
+    builder.add_node("root_cause", partial(root_cause, config=config))
+    builder.add_node("repair", partial(repair, config=config))
     builder.add_node("adversarial_verification", adversarial_verification)
 
     builder.set_entry_point("controller")
@@ -121,8 +145,12 @@ def build_graph(config: Config | None = None):
     builder.add_edge("failure_hypothesis", "root_cause")
     builder.add_conditional_edges(
         "root_cause",
-        partial(route_after_root_cause, confidence_threshold=config.confidence_threshold),
-        {"repair": "repair", END: LG_END},
+        partial(
+            route_after_root_cause,
+            confidence_threshold=config.confidence_threshold,
+            max_hypothesis_attempts=config.max_hypothesis_attempts,
+        ),
+        {"repair": "repair", "failure_hypothesis": "failure_hypothesis", END: LG_END},
     )
     builder.add_edge("repair", "adversarial_verification")
     builder.add_edge("adversarial_verification", "controller")

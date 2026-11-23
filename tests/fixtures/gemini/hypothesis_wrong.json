@@ -1,0 +1,14 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "{\"hypotheses\": [{\"cause\": \"the discount percentage applied in pricing.py changed, so checkout totals are lower than the test expects\", \"supporting_evidence\": [\"tests/test_cart.py::test_checkout_total fails on the checkout total\"], \"falsifier\": \"the error is an AttributeError rather than a wrong total, and no discount constant appears in the diff\", \"confidence\": 0.55, \"confidence_note\": \"A total mismatch is a common cause of checkout failures, but the excerpt has not been fully weighed yet.\"}]}"
+          }
+        ]
+      }
+    }
+  ]
+}

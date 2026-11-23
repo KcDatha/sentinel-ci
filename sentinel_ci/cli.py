@@ -1,14 +1,16 @@
 """Command line entry point: ``python -m sentinel_ci ...``
 
-Commands available today (Stage 1):
+Commands available today (Stages 1 and 2):
 
     parse-log FILE     parse a saved Actions log and print the summary
     watch              poll the configured repo for failed runs
                        (--once for a single pass)
     run-graph          run the agent graph over a saved log file and
-                       print the final incident state (diagnosis and
-                       repair stages are scaffolded, so this currently
-                       ends escalated with the evidence trail attached)
+                       print the final incident state (with
+                       GEMINI_API_KEY set, Stage 2 diagnosis and
+                       repair run and a proposed patch stops at the
+                       verification gate; without it, the incident
+                       escalates honestly with the evidence attached)
 """
 
 from __future__ import annotations

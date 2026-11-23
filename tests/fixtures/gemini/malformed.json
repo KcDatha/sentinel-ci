@@ -1,0 +1,14 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "I think the problem is probably the rename, but I cannot produce JSON right now."
+          }
+        ]
+      }
+    }
+  ]
+}
