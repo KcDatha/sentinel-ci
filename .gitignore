@@ -1,0 +1,7 @@
+__pycache__/
+*.egg-info/
+dist/
+build/
+.env
+.sentinel-ci-state.json
+.sentinel-ci-work/

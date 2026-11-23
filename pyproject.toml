@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentinel-ci"
+version = "0.1.0"
+description = "SENTINEL CI: a self healing CI agent. Diagnoses failed GitHub Actions runs, drafts a minimal repair, and adversarially verifies the fix before opening a pull request."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Guru Datha Kandanathi Chittem" }]
+dependencies = [
+    "langgraph",
+    "requests",
+]
+
+[project.scripts]
+sentinel-ci = "sentinel_ci.cli:main"
+
+[tool.setuptools]
+packages = ["sentinel_ci", "sentinel_ci.agents"]

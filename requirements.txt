@@ -1,0 +1,7 @@
+# Full dependencies for the complete pipeline (Stages 2 to 4).
+# Stage 1 (watcher and log parser) and the test suite run on the
+# standard library alone. The Gemini client speaks plain HTTPS to the
+# Google AI Studio API, so no vendor SDK is required; langgraph is
+# imported lazily and the graph degrades gracefully when it is absent.
+langgraph
+requests

@@ -1,0 +1,40 @@
+name: SENTINEL CI
+description: >-
+  Self healing CI. When a workflow run fails, SENTINEL CI diagnoses the
+  root cause, drafts a minimal repair, and adversarially verifies the fix
+  before opening a pull request.
+author: Guru Datha Kandanathi Chittem
+
+inputs:
+  gemini_api_key:
+    description: >-
+      Google AI Studio Gemini API key (free tier) used by the diagnosis
+      and repair agents.
+    required: true
+  github_token:
+    description: >-
+      Token with actions:read, contents:write, and pull-requests:write.
+      Defaults to the workflow token.
+    required: false
+    default: ${{ github.token }}
+  mode:
+    description: Operating mode. Only "watch" exists today; later stages add more.
+    required: false
+    default: watch
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - name: Install SENTINEL CI
+      shell: bash
+      run: pip install "${{ github.action_path }}"
+    - name: Run SENTINEL CI
+      shell: bash
+      env:
+        GEMINI_API_KEY: ${{ inputs.gemini_api_key }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: sentinel-ci watch --once

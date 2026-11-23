@@ -1,0 +1,11 @@
+2026-11-22T05:03:11.1023456Z ##[group]Run make build
+2026-11-22T05:03:11.2023456Z make build
+2026-11-22T05:03:11.3023456Z shell: /usr/bin/bash -e {0}
+2026-11-22T05:03:12.1023456Z gcc -Wall -O2 -o billing src/billing.c src/ledger.c
+2026-11-22T05:03:12.2023456Z src/billing.c: In function 'invoice_total':
+2026-11-22T05:03:12.3023456Z src/billing.c:42:13: error: 'tax_rate' undeclared (first use in this function)
+2026-11-22T05:03:12.4023456Z    42 |     return subtotal * (1 + tax_rate);
+2026-11-22T05:03:12.5023456Z       |             ^~~~~~~~
+2026-11-22T05:03:12.6023456Z src/billing.c:42:13: note: each undeclared identifier is reported only once for each function it appears in
+2026-11-22T05:03:12.7023456Z make: *** [Makefile:12: build] Error 1
+2026-11-22T05:03:12.8023456Z ##[error]Process completed with exit code 2.

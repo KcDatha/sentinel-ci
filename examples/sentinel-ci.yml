@@ -1,0 +1,33 @@
+# Add SENTINEL CI to your repository.
+#
+# Save this file as .github/workflows/sentinel-ci.yml in your repo, and
+# add a GEMINI_API_KEY secret under Settings > Secrets > Actions. The
+# key is a free Google AI Studio key; SENTINEL CI runs on free tiers.
+#
+# How it works: whenever the workflow named below finishes with a
+# failure, SENTINEL CI wakes up, reads the failed run's logs and the
+# diff since the last green build, and works the incident. A pull
+# request is opened only for a fix that survives adversarial
+# verification; anything else escalates to a human with the evidence
+# trail attached. SENTINEL CI never auto merges.
+
+name: SENTINEL CI
+
+on:
+  workflow_run:
+    workflows: ["CI"] # the name of your main CI workflow
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: write
+
+jobs:
+  heal:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: KcDatha/sentinel-ci@v1
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}

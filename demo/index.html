@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SENTINEL CI — a self healing CI agent</title>
+<meta name="description" content="When a GitHub Actions run fails, SENTINEL CI diagnoses the root cause, drafts a minimal repair, and adversarially verifies the fix before a pull request opens.">
+<style>
+  :root {
+    --bg: #fbfbfc;
+    --surface: #ffffff;
+    --surface-muted: #f4f5f6;
+    --border: #e2e5e8;
+    --text: #24282d;
+    --text-muted: #68707a;
+    --accent: #4a6b8a;
+    --failure: #9d5a52;
+    --success: #5d7d61;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px 96px; }
+  header { padding: 72px 0 40px; border-bottom: 1px solid var(--border); }
+  .wordmark {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px; letter-spacing: 0.12em; color: var(--text-muted);
+    text-transform: uppercase; margin: 0 0 20px;
+  }
+  h1 { font-size: 34px; line-height: 1.25; font-weight: 650; margin: 0 0 16px; }
+  .lede { font-size: 18px; color: var(--text-muted); margin: 0; max-width: 640px; }
+  .lede strong { color: var(--text); font-weight: 600; }
+  section { padding: 48px 0 0; }
+  h2 { font-size: 20px; font-weight: 650; margin: 0 0 8px; }
+  .section-note { color: var(--text-muted); margin: 0 0 24px; max-width: 640px; }
+  .panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 20px 24px;
+  }
+  .panel + .panel { margin-top: 16px; }
+  .panel-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 12px;
+  }
+  .panel-title { font-weight: 600; }
+  .meta {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px; color: var(--text-muted);
+  }
+  .status { font-size: 13px; font-weight: 600; }
+  .status.failed { color: var(--failure); }
+  .status.verified { color: var(--success); }
+  .status.pending { color: var(--text-muted); }
+  pre {
+    background: var(--surface-muted); border: 1px solid var(--border);
+    border-radius: 6px; padding: 16px; overflow-x: auto; margin: 12px 0 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px; line-height: 1.55;
+  }
+  .summary-line { font-weight: 600; margin: 4px 0 0; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td {
+    text-align: left; padding: 10px 12px; vertical-align: top;
+    border-bottom: 1px solid var(--border); font-size: 15px;
+  }
+  th { color: var(--text-muted); font-weight: 600; font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  td.num {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--text-muted); font-size: 13px; white-space: nowrap;
+  }
+  td .stage { display: block; font-size: 13px; color: var(--text-muted); }
+  ol.gate { margin: 0; padding-left: 20px; }
+  ol.gate li { margin-bottom: 10px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer {
+    margin-top: 72px; padding-top: 24px; border-top: 1px solid var(--border);
+    color: var(--text-muted); font-size: 14px;
+    display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="wordmark">Sentinel CI</p>
+    <h1>A self healing CI agent.</h1>
+    <p class="lede">When a GitHub Actions run fails, SENTINEL CI reads the logs
+    and the diff since the last green build, diagnoses the root cause, writes a
+    minimal repair, and <strong>tries to break its own fix</strong> before a
+    pull request opens. It is the SENTINEL six agent architecture pointed at
+    CI pipelines. The engineering is in the brakes.</p>
+  </header>
+
+  <section>
+    <h2>A failed run, as the parser sees it</h2>
+    <p class="section-note">Stage 1 is built and tested today: the watcher spots
+    the failed run, and the log parser reduces a full Actions log to the few
+    facts diagnosis needs. This is the parser's real output shape on a sample
+    pytest failure.</p>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">CI &middot; run 4242</span>
+        <span class="status failed">failed &middot; exit code 1</span>
+      </div>
+      <p class="summary-line">2 failing test(s): tests/test_cart.py::test_total_with_discount, tests/test_pricing.py::test_tax_rounding; exit code 1</p>
+      <pre>_________________________ test_total_with_discount _________________________
+tests/test_cart.py:48: in test_total_with_discount
+    assert cart.total() == 100.0
+E       AssertionError: assert 90.0 == 100.0
+E        +  where 90.0 = total()</pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>The six agents</h2>
+    <p class="section-note">Every agent reads and writes one typed incident
+    state, so each conclusion traces back to its evidence.</p>
+
+    <div class="panel" style="padding: 8px 12px;">
+      <table>
+        <tr><th></th><th>Agent</th><th>Job</th><th>Status</th></tr>
+        <tr>
+          <td class="num">01</td>
+          <td>Mission Controller</td>
+          <td>Opens the incident, owns routing, opens the PR or escalates</td>
+          <td><span class="status verified">Stage 1 live</span></td>
+        </tr>
+        <tr>
+          <td class="num">02</td>
+          <td>Codebase Analyst</td>
+          <td>Fetches the diff since the last green build, maps blast radius</td>
+          <td><span class="status pending">Stage 2</span></td>
+        </tr>
+        <tr>
+          <td class="num">03</td>
+          <td>Failure Hypothesis</td>
+          <td>Ranked candidate causes, each with the observation that would kill it</td>
+          <td><span class="status pending">Stage 2</span></td>
+        </tr>
+        <tr>
+          <td class="num">04</td>
+          <td>Root Cause</td>
+          <td>Tests hypotheses until one cause explains every symptom</td>
+          <td><span class="status pending">Stage 2</span></td>
+        </tr>
+        <tr>
+          <td class="num">05</td>
+          <td>Repair</td>
+          <td>Drafts the smallest safe fix, with a rollback path</td>
+          <td><span class="status pending">Stage 2</span></td>
+        </tr>
+        <tr>
+          <td class="num">06</td>
+          <td>Adversarial Verification</td>
+          <td>Reruns the failing tests plus the regression suite in Docker and argues against the fix</td>
+          <td><span class="status pending">Stage 3</span></td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>The verification gate</h2>
+    <p class="section-note">A repair becomes a pull request only if all three hold:</p>
+    <div class="panel">
+      <ol class="gate">
+        <li>The originally failing tests pass with the patch applied.</li>
+        <li>The regression suite passes in a clean Docker environment.</li>
+        <li>The verification agent's challenge (wrong layer, masked symptom,
+        new breakage) fails to break the fix.</li>
+      </ol>
+      <p style="margin: 16px 0 0; color: var(--text-muted);">Anything else loops
+      back to Repair with the verifier's notes, a capped number of times, and
+      then escalates to a human with the full evidence trail. SENTINEL CI never
+      auto merges.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Add it to a repository</h2>
+    <p class="section-note">One workflow file, plus a free Google AI Studio key
+    as a repository secret. SENTINEL CI runs on free tiers only: Gemini free
+    tier, GitHub free, Actions free minutes, Vercel free for this page.</p>
+    <pre>- uses: KcDatha/sentinel-ci@v1
+  with:
+    gemini_api_key: ${{ secrets.GEMINI_API_KEY }}</pre>
+    <p style="color: var(--text-muted);">Full example and source:
+    <a href="https://github.com/KcDatha/sentinel-ci">github.com/KcDatha/sentinel-ci</a></p>
+  </section>
+
+  <footer>
+    <span>SENTINEL CI — under active development. Stage 1 is live; diagnosis,
+    verification, and pull requests land stage by stage.</span>
+    <span>Built by <a href="https://gurudatha-portfolio.vercel.app/">Guru Datha Kandanathi Chittem</a></span>
+  </footer>
+
+</div>
+</body>
+</html>
