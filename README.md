@@ -124,17 +124,24 @@ A public demo repository,
 [sentinel-ci-demo](https://github.com/KcDatha/sentinel-ci-demo),
 carries three planted, recognizable failures (a renamed function
 whose caller was not updated, a date dependent test, and a JSON
-contract drift) with the consumer workflow installed, so its CI is
-red on purpose. What remains before a live healing run can happen
-there is one step that belongs to the repository owner: add a free
-Google AI Studio key as the `GEMINI_API_KEY` secret in the demo
-repository (Settings > Secrets and variables > Actions). Until that
-secret exists, the Action runs, logs exactly that, and changes
-nothing; no key, no healing, no pretending. When diagnosis cannot
-run or cannot reach confidence, the pipeline does the honest thing:
-it escalates to a human with the evidence attached. The full plan,
-including guardrails and the UI design direction for the demo page,
-is in [BUILD_PLAN.md](BUILD_PLAN.md).
+contract drift). Two steps remain before a live healing run can
+happen there, and both belong to the account owner. First, the
+consumer workflow files: they are written and ready, but GitHub
+refuses to let an OAuth token without the `workflow` scope push
+files under `.github/workflows`, and the token in the build
+environment carries only `gist`, `read:org`, and `repo`. Guru
+grants the scope once with `gh auth refresh -h github.com -s
+workflow` (or adds the two files in the web interface), and the
+files land; the moment they do, the demo CI runs and goes red on
+the planted failures, as it does locally. Second, the model key:
+add a free Google AI Studio key as the `GEMINI_API_KEY` secret in
+the demo repository (Settings > Secrets and variables > Actions).
+Until that secret exists, the Action runs, logs exactly that, and
+changes nothing; no key, no healing, no pretending. When diagnosis
+cannot run or cannot reach confidence, the pipeline does the honest
+thing: it escalates to a human with the evidence attached. The full
+plan, including guardrails and the UI design direction for the demo
+page, is in [BUILD_PLAN.md](BUILD_PLAN.md).
 
 ## Author
 

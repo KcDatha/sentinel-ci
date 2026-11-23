@@ -187,7 +187,7 @@ and `pyproject.toml` declare the real dependencies for consumers and CI.
       run out; and sandbox isolation (the original checkout is
       byte-identical afterwards, no stray worktrees).
 
-## Stage 4: Pull requests, demo, launch — BUILT (live run pending one secret)
+## Stage 4: Pull requests, demo, launch — BUILT (live run pending two account steps)
 
 - [x] Controller opens a PR from the verified patch only
       (`sentinel_ci/pull_request.py`, driven by
@@ -219,20 +219,31 @@ and `pyproject.toml` declare the real dependencies for consumers and CI.
 - [x] Demo repository: `KcDatha/sentinel-ci-demo`, a small Python
       shop with a real unittest suite and three planted, recognizable
       failures committed in sequence (a function renamed in pricing
-      whose cart caller was not updated, a receipt footer test with
-      a hardcoded year, and an order JSON key renamed away from the
-      documented contract), plus the consumer workflow. Its CI is
-      red on purpose.
+      whose cart caller was not updated, a receipt footer with a
+      hardcoded year against a test that derives the current year,
+      and an order JSON key renamed away from the documented
+      contract). The suite is green at the first commit and gains
+      exactly one failure per plant, verified locally at every
+      commit. The consumer workflow files are written and ready but
+      NOT yet in the repo: GitHub rejected the push because the
+      build environment's OAuth token (scopes `gist`, `read:org`,
+      `repo`) lacks the `workflow` scope that files under
+      `.github/workflows` require, and SSH is blocked in the
+      sandbox. Guru lands them with one step: `gh auth refresh
+      -h github.com -s workflow` and a push of the ready files, or
+      adding both files in the web interface. Until then no CI has
+      run in the demo repo; the red build is verified locally, not
+      on GitHub.
 - [ ] A recorded end to end healing run (red build, diagnosis,
       repair, verifier rejecting an attempt, verified fix, PR).
-      Blocked on exactly one step: the `GEMINI_API_KEY` secret does
-      not exist in the demo repository yet, and no key is available
-      in the development environment (the variable is set but
-      empty). Guru adds a free Google AI Studio key under the demo
-      repo's Settings > Secrets and variables > Actions, and the
-      next failed CI run (or a re-run of the current one) triggers
-      the heal. Until then the Action logs the missing key and
-      changes nothing, which the demo repo's workflow history shows.
+      Blocked on two account owner steps, in order: the workflow
+      files above, and the `GEMINI_API_KEY` secret (no key is
+      available in the development environment; the variable is set
+      but empty, and no secret was invented or set). Guru adds a
+      free Google AI Studio key under the demo repo's Settings >
+      Secrets and variables > Actions, and the next failed CI run
+      (or a re-run of the current one) triggers the heal. Until
+      then the Action logs the missing key and changes nothing.
 - [x] Live demo page: `demo/` reflects Stages 1 to 4 (all six agents
       working, Stage 4 landing note, demo repo linked), design
       tokens unchanged; the Vercel site is GitHub connected and

@@ -206,10 +206,12 @@ E        +  where 90.0 = total()</pre>
     parser, diagnosis and repair behind a programmatic patch guard, and the
     three condition verification gate. Stage 4 is landing in this update:
     pull request opening from a verified fix, the installable Action running
-    the full pipeline, and the public demo repository. One step remains
-    before a live healing run can happen on the demo repository: adding the
-    free Gemini key as its <span class="meta">GEMINI_API_KEY</span> secret.
-    Until then the Action logs exactly that and changes nothing.</p>
+    the full pipeline, and the public demo repository. Two account steps
+    remain before a live healing run can happen on the demo repository:
+    its workflow files are written and ready but need the GitHub workflow
+    scope to be pushed, and the free Gemini key must be added as its
+    <span class="meta">GEMINI_API_KEY</span> secret. Until then the Action
+    logs exactly that and changes nothing.</p>
   </section>
 
   <footer>
